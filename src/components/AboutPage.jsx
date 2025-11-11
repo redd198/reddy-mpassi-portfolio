@@ -62,12 +62,12 @@ const AboutPage = () => {
   ]
 
   const galleryImages = [
-    { src: "/gallery/conference-1.jpg", alt: "Conférence EAD" },
-    { src: "/gallery/formation-1.jpg", alt: "Formation IS2M" },
-    { src: "/gallery/zieta-logo.png", alt: "Zieta+" },
-    { src: "/gallery/event-1.jpg", alt: "Événement digital" },
-    { src: "/gallery/mayo-brasco-logo.png", alt: "Mayo Brasco" },
-    { src: "/gallery/onyfast-logo.png", alt: "OnYFast" },
+    { src: "/gallery/E-N-EAD.png", alt: "Formation Économie Numérique EAD" },
+    { src: "/gallery/LOGO-creer.jfif", alt: "Logo Créer" },
+    { src: "/gallery/LOGO-ZIETAplus.png", alt: "Logo Zieta+" },
+    { src: "/gallery/LOGO.jfif", alt: "Logo Projet" },
+    { src: "/gallery/maquette-mike.png", alt: "Maquette site Mike Mvila" },
+    { src: "/gallery/maquette-site.jpg", alt: "Maquette site web" },
   ]
 
   return (
@@ -213,19 +213,19 @@ const AboutPage = () => {
             initial="hidden"
             whileInView="visible"
             viewport={{ once: true, margin: "-50px" }}
-            className="grid grid-cols-2 md:grid-cols-3 gap-4 mb-8"
+            className="grid grid-cols-2 md:grid-cols-3 gap-6 mb-8"
           >
             {galleryImages.map((image, index) => (
               <motion.div
                 key={index}
                 variants={cardVariants}
-                whileHover={{ scale: 1.05, transition: { duration: 0.3 } }}
-                className="relative aspect-square rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 bg-gray-100"
+                whileHover={{ scale: 1.03, transition: { duration: 0.3 } }}
+                className="relative w-full h-64 rounded-xl overflow-hidden shadow-lg hover:shadow-2xl transition-shadow duration-300 bg-white border border-gray-200"
               >
                 <img
                   src={image.src}
                   alt={image.alt}
-                  className="w-full h-full object-cover"
+                  className="w-full h-full object-contain p-4"
                   onError={(e) => {
                     e.target.style.display = 'none'
                     e.target.parentElement.innerHTML = `<div class="flex items-center justify-center h-full text-gray-400 text-sm p-4 text-center">${image.alt}</div>`
