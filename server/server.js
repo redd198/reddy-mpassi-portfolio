@@ -87,6 +87,35 @@ app.post('/api/commandes', async (req, res) => {
   }
 })
 
+// Route pour enregistrer un lead (livre gratuit, webinaire, etc.)
+app.post('/api/leads', async (req, res) => {
+  try {
+    const { prenom, email, whatsapp, preference, source, produit } = req.body
+
+    if (!prenom || !email || !whatsapp) {
+      return res.status(400).json({ error: 'Tous les champs sont requis' })
+    }
+
+    const [result] = await pool.query(
+      `INSERT INTO leads (prenom, email, whatsapp, preference, source, produit) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [prenom, email, whatsapp, preference || 'whatsapp', source || 'site-web', produit || 'Livre gratuit']
+    )
+
+    res.status(201).json({
+      success: true,
+      message: 'Lead enregistré avec succès',
+      id: result.insertId
+    })
+  } catch (error) {
+    if (error.code === 'ER_DUP_ENTRY') {
+      return res.status(400).json({ error: 'Cet email est déjà enregistré' })
+    }
+    console.error('Erreur lors de l\'enregistrement du lead:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
 // Route pour l'inscription à la newsletter
 app.post('/api/newsletter', async (req, res) => {
   try {

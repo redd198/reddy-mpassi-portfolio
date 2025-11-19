@@ -194,13 +194,11 @@ const BooksPage = () => {
                   {/* Action Button */}
                   {book.type === 'gratuit' ? (
                     <a
-                      href={book.pdfLink}
-                      target="_blank"
-                      rel="noopener noreferrer"
+                      href="/landing/livre-gratuit"
                       className={`flex items-center justify-center gap-3 w-full py-4 px-6 bg-green-500 text-white font-bold text-lg rounded-lg shadow-lg hover:shadow-xl hover:-translate-y-1 transition-all duration-300`}
                     >
                       <FaDownload />
-                      Télécharger gratuitement
+                      Recevoir mon livre GRATUIT
                     </a>
                   ) : (
                     <button

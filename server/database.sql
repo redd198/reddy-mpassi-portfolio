@@ -42,6 +42,21 @@ CREATE TABLE newsletter (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Table pour les leads (livre gratuit, webinaire, etc.)
+CREATE TABLE leads (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    prenom VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    whatsapp VARCHAR(50) NOT NULL,
+    preference ENUM('email', 'whatsapp') DEFAULT 'whatsapp',
+    source VARCHAR(100) DEFAULT 'site-web',
+    produit VARCHAR(255) DEFAULT 'Livre gratuit',
+    statut ENUM('nouveau', 'contacte', 'converti') DEFAULT 'nouveau',
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    UNIQUE KEY unique_email_source (email, source)
+);
+
 -- Index pour améliorer les performances
 CREATE INDEX idx_reservations_date ON reservations(date_souhaitee);
 CREATE INDEX idx_reservations_statut ON reservations(statut);
