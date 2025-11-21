@@ -57,7 +57,35 @@ CREATE TABLE leads (
     UNIQUE KEY unique_email_source (email, source)
 );
 
+-- Table pour les administrateurs
+CREATE TABLE admins (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(100) UNIQUE NOT NULL,
+    password VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Table pour le tracking des visiteurs
+CREATE TABLE visitors (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ip_address VARCHAR(45),
+    country VARCHAR(100),
+    city VARCHAR(100),
+    page_url VARCHAR(500),
+    referrer VARCHAR(500),
+    user_agent TEXT,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Insérer un admin par défaut (username: admin, password: Admin@2024)
+-- Le mot de passe est hashé avec bcrypt
+INSERT INTO admins (username, password, email) VALUES 
+('admin', '$2b$10$eSMQ8TPEN64WSMMLLTwF7eqKUZSpOQzfNE6KPwwuv4xt6i.b3.v7K', 'reddympassi@gmail.com');
+
 -- Index pour améliorer les performances
 CREATE INDEX idx_reservations_date ON reservations(date_souhaitee);
 CREATE INDEX idx_reservations_statut ON reservations(statut);
 CREATE INDEX idx_commandes_statut ON commandes_livres(statut);
+CREATE INDEX idx_visitors_country ON visitors(country);
+CREATE INDEX idx_visitors_created ON visitors(created_at);

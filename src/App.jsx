@@ -7,6 +7,7 @@ import BlogPage from './components/BlogPage'
 import BookingPage from './components/BookingPage'
 import BooksPage from './components/BooksPage'
 import LandingLivreGratuit from './components/LandingLivreGratuit'
+import AdminPage from './components/AdminPage'
 
 function App() {
   return (
@@ -20,6 +21,7 @@ function App() {
         <Route path="/reserver" element={<BookingPage />} />
         <Route path="/livres" element={<BooksPage />} />
         <Route path="/landing/livre-gratuit" element={<LandingLivreGratuit />} />
+        <Route path="/admin" element={<AdminPage />} />
       </Routes>
     </Router>
   )

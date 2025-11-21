@@ -1,7 +1,11 @@
 import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
+import bcrypt from 'bcryptjs'
+import jwt from 'jsonwebtoken'
 import mysqlPool from './db.js'
+import { getLocationFromIP, getClientIP } from './tracking.js'
+import { sendLeadNotification, sendReservationNotification, sendCommandeNotification } from './email.js'
 
 dotenv.config()
 
@@ -14,6 +18,41 @@ const PORT = process.env.PORT || 5000
 // Middleware
 app.use(cors())
 app.use(express.json())
+
+// Middleware pour tracker les visiteurs
+app.use(async (req, res, next) => {
+  try {
+    const ip = getClientIP(req)
+    const location = await getLocationFromIP(ip)
+    
+    await pool.query(
+      `INSERT INTO visitors (ip_address, country, city, page_url, referrer, user_agent) 
+       VALUES (?, ?, ?, ?, ?, ?)`,
+      [ip, location.country, location.city, req.originalUrl, req.headers.referer || '', req.headers['user-agent'] || '']
+    )
+  } catch (error) {
+    console.error('Erreur tracking:', error)
+  }
+  next()
+})
+
+// Middleware d'authentification
+const authenticateToken = (req, res, next) => {
+  const authHeader = req.headers['authorization']
+  const token = authHeader && authHeader.split(' ')[1]
+
+  if (!token) {
+    return res.status(401).json({ error: 'Token manquant' })
+  }
+
+  jwt.verify(token, process.env.JWT_SECRET || 'secret_key_change_in_production', (err, user) => {
+    if (err) {
+      return res.status(403).json({ error: 'Token invalide' })
+    }
+    req.user = user
+    next()
+  })
+}
 
 // Route de test
 app.get('/api/health', (req, res) => {
@@ -36,6 +75,9 @@ app.post('/api/reservations', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [nom, whatsapp, email, theme, objectif, date, heure, paiement]
     )
+
+    // Envoyer notification email
+    await sendReservationNotification({ nom, whatsapp, email, theme, objectif, date, heure, paiement })
 
     res.status(201).json({
       success: true,
@@ -76,6 +118,9 @@ app.post('/api/commandes', async (req, res) => {
       [nom, email, whatsapp, livre]
     )
 
+    // Envoyer notification email
+    await sendCommandeNotification({ nom, email, whatsapp, livre })
+
     res.status(201).json({
       success: true,
       message: 'Commande enregistrée avec succès',
@@ -101,6 +146,9 @@ app.post('/api/leads', async (req, res) => {
        VALUES (?, ?, ?, ?, ?, ?)`,
       [prenom, email, whatsapp, preference || 'whatsapp', source || 'site-web', produit || 'Livre gratuit']
     )
+
+    // Envoyer notification email
+    await sendLeadNotification({ prenom, email, whatsapp, preference, source, produit })
 
     res.status(201).json({
       success: true,
@@ -139,6 +187,138 @@ app.post('/api/newsletter', async (req, res) => {
       return res.status(400).json({ error: 'Cet email est déjà inscrit' })
     }
     console.error('Erreur lors de l\'inscription:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// ============= ROUTES ADMIN =============
+
+// Login admin
+app.post('/api/admin/login', async (req, res) => {
+  try {
+    const { username, password } = req.body
+
+    const [rows] = await pool.query('SELECT * FROM admins WHERE username = ?', [username])
+    
+    if (rows.length === 0) {
+      return res.status(401).json({ error: 'Identifiants incorrects' })
+    }
+
+    const admin = rows[0]
+    const validPassword = await bcrypt.compare(password, admin.password)
+
+    if (!validPassword) {
+      return res.status(401).json({ error: 'Identifiants incorrects' })
+    }
+
+    const token = jwt.sign(
+      { id: admin.id, username: admin.username },
+      process.env.JWT_SECRET || 'secret_key_change_in_production',
+      { expiresIn: '24h' }
+    )
+
+    res.json({
+      success: true,
+      token,
+      admin: { id: admin.id, username: admin.username, email: admin.email }
+    })
+  } catch (error) {
+    console.error('Erreur login:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Dashboard stats
+app.get('/api/admin/stats', authenticateToken, async (req, res) => {
+  try {
+    const [leadsCount] = await pool.query('SELECT COUNT(*) as count FROM leads')
+    const [reservationsCount] = await pool.query('SELECT COUNT(*) as count FROM reservations')
+    const [commandesCount] = await pool.query('SELECT COUNT(*) as count FROM commandes_livres')
+    const [visitorsCount] = await pool.query('SELECT COUNT(*) as count FROM visitors')
+    const [visitorsToday] = await pool.query('SELECT COUNT(*) as count FROM visitors WHERE DATE(created_at) = CURDATE()')
+    
+    // Top pays
+    const [topCountries] = await pool.query(`
+      SELECT country, COUNT(*) as count 
+      FROM visitors 
+      WHERE country != 'Inconnu'
+      GROUP BY country 
+      ORDER BY count DESC 
+      LIMIT 10
+    `)
+
+    // Leads récents
+    const [recentLeads] = await pool.query('SELECT * FROM leads ORDER BY created_at DESC LIMIT 5')
+
+    res.json({
+      stats: {
+        leads: leadsCount[0].count,
+        reservations: reservationsCount[0].count,
+        commandes: commandesCount[0].count,
+        visitors: visitorsCount[0].count,
+        visitorsToday: visitorsToday[0].count
+      },
+      topCountries,
+      recentLeads
+    })
+  } catch (error) {
+    console.error('Erreur stats:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Récupérer tous les leads
+app.get('/api/admin/leads', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM leads ORDER BY created_at DESC')
+    res.json(rows)
+  } catch (error) {
+    console.error('Erreur:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Récupérer toutes les réservations (admin)
+app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM reservations ORDER BY created_at DESC')
+    res.json(rows)
+  } catch (error) {
+    console.error('Erreur:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Récupérer toutes les commandes
+app.get('/api/admin/commandes', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM commandes_livres ORDER BY created_at DESC')
+    res.json(rows)
+  } catch (error) {
+    console.error('Erreur:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Récupérer les visiteurs
+app.get('/api/admin/visitors', authenticateToken, async (req, res) => {
+  try {
+    const [rows] = await pool.query('SELECT * FROM visitors ORDER BY created_at DESC LIMIT 100')
+    res.json(rows)
+  } catch (error) {
+    console.error('Erreur:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Mettre à jour le statut d'un lead
+app.patch('/api/admin/leads/:id', authenticateToken, async (req, res) => {
+  try {
+    const { statut } = req.body
+    await pool.query('UPDATE leads SET statut = ? WHERE id = ?', [statut, req.params.id])
+    res.json({ success: true })
+  } catch (error) {
+    console.error('Erreur:', error)
     res.status(500).json({ error: 'Erreur serveur' })
   }
 })
