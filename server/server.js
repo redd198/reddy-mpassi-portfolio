@@ -59,6 +59,22 @@ app.get('/api/health', (req, res) => {
   res.json({ status: 'OK', message: 'API fonctionnelle' })
 })
 
+// Route pour initialiser la base de données (à utiliser une seule fois)
+app.get('/api/init-database', async (req, res) => {
+  try {
+    const fs = await import('fs')
+    const sql = fs.readFileSync('./server/database-postgres.sql', 'utf8')
+    
+    // Exécuter le script SQL
+    await pool.query(sql)
+    
+    res.json({ success: true, message: 'Base de données initialisée avec succès' })
+  } catch (error) {
+    console.error('Erreur init DB:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Route pour créer une réservation
 app.post('/api/reservations', async (req, res) => {
   try {
