@@ -63,7 +63,14 @@ app.get('/api/health', (req, res) => {
 app.get('/api/init-database', async (req, res) => {
   try {
     const fs = await import('fs')
-    const sql = fs.readFileSync('./server/database-postgres.sql', 'utf8')
+    const { fileURLToPath } = await import('url')
+    const { dirname, join } = await import('path')
+    
+    const __filename = fileURLToPath(import.meta.url)
+    const __dirname = dirname(__filename)
+    const sqlPath = join(__dirname, 'database-postgres.sql')
+    
+    const sql = fs.readFileSync(sqlPath, 'utf8')
     
     // Exécuter le script SQL
     await pool.query(sql)
