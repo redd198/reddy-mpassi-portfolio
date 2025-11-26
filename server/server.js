@@ -9,7 +9,6 @@ import { sendLeadNotification, sendReservationNotification, sendCommandeNotifica
 
 dotenv.config()
 
-// Utiliser MySQL partout (local et production)
 const pool = mysqlPool
 
 const app = express()
@@ -21,6 +20,10 @@ app.use(express.json())
 
 // Middleware pour tracker les visiteurs
 app.use(async (req, res, next) => {
+  // Skip tracking pour éviter les erreurs de connexion DB
+  next()
+  
+  // Tracking en arrière-plan (ne bloque pas la requête)
   try {
     const ip = getClientIP(req)
     const location = await getLocationFromIP(ip)
@@ -31,9 +34,8 @@ app.use(async (req, res, next) => {
       [ip, location.country, location.city, req.originalUrl, req.headers.referer || '', req.headers['user-agent'] || '']
     )
   } catch (error) {
-    console.error('Erreur tracking:', error)
+    // Erreur silencieuse pour ne pas bloquer l'app
   }
-  next()
 })
 
 // Middleware d'authentification
