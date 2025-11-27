@@ -86,12 +86,15 @@ app.post('/api/reservations', async (req, res) => {
       return res.status(400).json({ error: 'Tous les champs sont requis' })
     }
 
-    const [result] = await pool.query(
+    const { query, params } = adaptQuery(
       `INSERT INTO reservations 
        (nom, whatsapp, email, theme, objectif, date_souhaitee, heure_souhaitee, paiement) 
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`,
       [nom, whatsapp, email, theme, objectif, date, heure, paiement]
     )
+    
+    const result = await pool.query(query, params)
+    const insertId = extractInsertId(result)
 
     // Envoyer notification email
     await sendReservationNotification({ nom, whatsapp, email, theme, objectif, date, heure, paiement })
@@ -99,7 +102,7 @@ app.post('/api/reservations', async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Réservation créée avec succès',
-      id: result.insertId
+      id: insertId
     })
   } catch (error) {
     console.error('Erreur lors de la création de la réservation:', error)
@@ -110,9 +113,9 @@ app.post('/api/reservations', async (req, res) => {
 // Route pour récupérer toutes les réservations
 app.get('/api/reservations', async (req, res) => {
   try {
-    const [rows] = await pool.query(
-      'SELECT * FROM reservations ORDER BY created_at DESC'
-    )
+    const { query, params } = adaptQuery('SELECT * FROM reservations ORDER BY created_at DESC', [])
+    const result = await pool.query(query, params)
+    const rows = extractRows(result)
     res.json(rows)
   } catch (error) {
     console.error('Erreur lors de la récupération des réservations:', error)
@@ -161,11 +164,14 @@ app.post('/api/leads', async (req, res) => {
       return res.status(400).json({ error: 'Tous les champs sont requis' })
     }
 
-    const [result] = await pool.query(
+    const { query, params } = adaptQuery(
       `INSERT INTO leads (prenom, email, whatsapp, preference, source, produit) 
        VALUES (?, ?, ?, ?, ?, ?)`,
       [prenom, email, whatsapp, preference || 'whatsapp', source || 'site-web', produit || 'Livre gratuit']
     )
+    
+    const result = await pool.query(query, params)
+    const insertId = extractInsertId(result)
 
     // Envoyer notification email
     await sendLeadNotification({ prenom, email, whatsapp, preference, source, produit })
@@ -173,10 +179,11 @@ app.post('/api/leads', async (req, res) => {
     res.status(201).json({
       success: true,
       message: 'Lead enregistré avec succès',
-      id: result.insertId
+      id: insertId
     })
   } catch (error) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    // PostgreSQL utilise '23505' pour duplicate key, MySQL utilise 'ER_DUP_ENTRY'
+    if (error.code === 'ER_DUP_ENTRY' || error.code === '23505') {
       return res.status(400).json({ error: 'Cet email est déjà enregistré' })
     }
     console.error('Erreur lors de l\'enregistrement du lead:', error)
@@ -193,17 +200,20 @@ app.post('/api/newsletter', async (req, res) => {
       return res.status(400).json({ error: 'Email requis' })
     }
 
-    const [result] = await pool.query(
+    const { query, params } = adaptQuery(
       'INSERT INTO newsletter (email) VALUES (?)',
       [email]
     )
+    
+    await pool.query(query, params)
 
     res.status(201).json({
       success: true,
       message: 'Inscription réussie'
     })
   } catch (error) {
-    if (error.code === 'ER_DUP_ENTRY') {
+    // PostgreSQL utilise '23505' pour duplicate key, MySQL utilise 'ER_DUP_ENTRY'
+    if (error.code === 'ER_DUP_ENTRY' || error.code === '23505') {
       return res.status(400).json({ error: 'Cet email est déjà inscrit' })
     }
     console.error('Erreur lors de l\'inscription:', error)
@@ -391,7 +401,8 @@ app.get('/api/admin/visitors', authenticateToken, async (req, res) => {
 app.patch('/api/admin/leads/:id', authenticateToken, async (req, res) => {
   try {
     const { statut } = req.body
-    await pool.query('UPDATE leads SET statut = ? WHERE id = ?', [statut, req.params.id])
+    const { query, params } = adaptQuery('UPDATE leads SET statut = ? WHERE id = ?', [statut, req.params.id])
+    await pool.query(query, params)
     res.json({ success: true })
   } catch (error) {
     console.error('Erreur:', error)
