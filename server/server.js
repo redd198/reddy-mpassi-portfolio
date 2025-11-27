@@ -288,32 +288,40 @@ app.post('/api/admin/login', async (req, res) => {
 // Dashboard stats
 app.get('/api/admin/stats', authenticateToken, async (req, res) => {
   try {
-    const [leadsCount] = await pool.query('SELECT COUNT(*) as count FROM leads')
-    const [reservationsCount] = await pool.query('SELECT COUNT(*) as count FROM reservations')
-    const [commandesCount] = await pool.query('SELECT COUNT(*) as count FROM commandes_livres')
-    const [visitorsCount] = await pool.query('SELECT COUNT(*) as count FROM visitors')
-    const [visitorsToday] = await pool.query('SELECT COUNT(*) as count FROM visitors WHERE DATE(created_at) = CURDATE()')
+    const { query: q1, params: p1 } = adaptQuery('SELECT COUNT(*) as count FROM leads', [])
+    const { query: q2, params: p2 } = adaptQuery('SELECT COUNT(*) as count FROM reservations', [])
+    const { query: q3, params: p3 } = adaptQuery('SELECT COUNT(*) as count FROM commandes_livres', [])
+    const { query: q4, params: p4 } = adaptQuery('SELECT COUNT(*) as count FROM visitors', [])
+    const { query: q5, params: p5 } = adaptQuery('SELECT COUNT(*) as count FROM visitors WHERE DATE(created_at) = CURRENT_DATE', [])
+    
+    const leadsCount = extractRows(await pool.query(q1, p1))
+    const reservationsCount = extractRows(await pool.query(q2, p2))
+    const commandesCount = extractRows(await pool.query(q3, p3))
+    const visitorsCount = extractRows(await pool.query(q4, p4))
+    const visitorsToday = extractRows(await pool.query(q5, p5))
     
     // Top pays
-    const [topCountries] = await pool.query(`
+    const { query: q6, params: p6 } = adaptQuery(`
       SELECT country, COUNT(*) as count 
       FROM visitors 
-      WHERE country != 'Inconnu'
+      WHERE country != ? 
       GROUP BY country 
       ORDER BY count DESC 
       LIMIT 10
-    `)
+    `, ['Inconnu'])
+    const topCountries = extractRows(await pool.query(q6, p6))
 
     // Leads récents
-    const [recentLeads] = await pool.query('SELECT * FROM leads ORDER BY created_at DESC LIMIT 5')
+    const { query: q7, params: p7 } = adaptQuery('SELECT * FROM leads ORDER BY created_at DESC LIMIT 5', [])
+    const recentLeads = extractRows(await pool.query(q7, p7))
 
     res.json({
       stats: {
-        leads: leadsCount[0].count,
-        reservations: reservationsCount[0].count,
-        commandes: commandesCount[0].count,
-        visitors: visitorsCount[0].count,
-        visitorsToday: visitorsToday[0].count
+        leads: parseInt(leadsCount[0]?.count || 0),
+        reservations: parseInt(reservationsCount[0]?.count || 0),
+        commandes: parseInt(commandesCount[0]?.count || 0),
+        visitors: parseInt(visitorsCount[0]?.count || 0),
+        visitorsToday: parseInt(visitorsToday[0]?.count || 0)
       },
       topCountries,
       recentLeads
@@ -327,7 +335,9 @@ app.get('/api/admin/stats', authenticateToken, async (req, res) => {
 // Récupérer tous les leads
 app.get('/api/admin/leads', authenticateToken, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM leads ORDER BY created_at DESC')
+    const { query, params } = adaptQuery('SELECT * FROM leads ORDER BY created_at DESC', [])
+    const result = await pool.query(query, params)
+    const rows = extractRows(result)
     res.json(rows)
   } catch (error) {
     console.error('Erreur:', error)
@@ -338,7 +348,9 @@ app.get('/api/admin/leads', authenticateToken, async (req, res) => {
 // Récupérer toutes les réservations (admin)
 app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM reservations ORDER BY created_at DESC')
+    const { query, params } = adaptQuery('SELECT * FROM reservations ORDER BY created_at DESC', [])
+    const result = await pool.query(query, params)
+    const rows = extractRows(result)
     res.json(rows)
   } catch (error) {
     console.error('Erreur:', error)
@@ -349,7 +361,9 @@ app.get('/api/admin/reservations', authenticateToken, async (req, res) => {
 // Récupérer toutes les commandes
 app.get('/api/admin/commandes', authenticateToken, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM commandes_livres ORDER BY created_at DESC')
+    const { query, params } = adaptQuery('SELECT * FROM commandes_livres ORDER BY created_at DESC', [])
+    const result = await pool.query(query, params)
+    const rows = extractRows(result)
     res.json(rows)
   } catch (error) {
     console.error('Erreur:', error)
@@ -360,7 +374,9 @@ app.get('/api/admin/commandes', authenticateToken, async (req, res) => {
 // Récupérer les visiteurs
 app.get('/api/admin/visitors', authenticateToken, async (req, res) => {
   try {
-    const [rows] = await pool.query('SELECT * FROM visitors ORDER BY created_at DESC LIMIT 100')
+    const { query, params } = adaptQuery('SELECT * FROM visitors ORDER BY created_at DESC LIMIT 100', [])
+    const result = await pool.query(query, params)
+    const rows = extractRows(result)
     res.json(rows)
   } catch (error) {
     console.error('Erreur:', error)
