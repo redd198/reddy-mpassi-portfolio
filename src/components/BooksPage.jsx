@@ -15,6 +15,14 @@ const BooksPage = () => {
   const [orderSubmitted, setOrderSubmitted] = useState(false)
 
   const handleOrderClick = (bookTitle) => {
+    // Vérifier si l'utilisateur a déjà une commande en cours
+    const existingOrder = localStorage.getItem('pendingOrder')
+    if (existingOrder) {
+      const orderData = JSON.parse(existingOrder)
+      alert(`⚠️ Vous avez déjà une commande en cours pour "${orderData.livre}".\n\nVeuillez attendre qu'elle soit traitée avant de commander à nouveau.\n\nSi vous pensez qu'il s'agit d'une erreur, contactez-nous sur WhatsApp.`)
+      return
+    }
+    
     setOrderForm({ ...orderForm, livre: bookTitle })
     setShowOrderForm(true)
   }
@@ -29,6 +37,14 @@ const BooksPage = () => {
   const handleSubmit = async (e) => {
     e.preventDefault()
     
+    // Vérifier si l'utilisateur a déjà une commande en cours
+    const existingOrder = localStorage.getItem('pendingOrder')
+    if (existingOrder) {
+      const orderData = JSON.parse(existingOrder)
+      alert(`Vous avez déjà une commande en cours pour "${orderData.livre}". Veuillez attendre qu'elle soit traitée avant de commander à nouveau.`)
+      return
+    }
+    
     try {
       const response = await fetch(`${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/commandes`, {
         method: 'POST',
@@ -39,12 +55,14 @@ const BooksPage = () => {
       })
 
       if (response.ok) {
+        // Sauvegarder la commande en cours dans localStorage
+        localStorage.setItem('pendingOrder', JSON.stringify({
+          livre: orderForm.livre,
+          date: new Date().toISOString()
+        }))
+        
         setOrderSubmitted(true)
-        setTimeout(() => {
-          setShowOrderForm(false)
-          setOrderSubmitted(false)
-          setOrderForm({ nom: '', email: '', whatsapp: '', livre: '' })
-        }, 3000)
+        // Ne plus fermer automatiquement - laisser l'utilisateur voir le message
       } else {
         alert('Erreur lors de l\'envoi de la commande')
       }
@@ -306,13 +324,33 @@ const BooksPage = () => {
               </>
             ) : (
               <div className="text-center py-8">
-                <div className="text-6xl text-green-500 mb-4">✓</div>
-                <h3 className="text-2xl font-bold text-reddy-blue mb-2">
-                  Commande envoyée !
+                <div className="text-6xl text-green-500 mb-4 animate-bounce">🎉</div>
+                <h3 className="text-3xl font-bold text-green-600 mb-4">
+                  Félicitations !
                 </h3>
-                <p className="text-gray-600">
-                  Nous vous contacterons bientôt.
+                <h4 className="text-xl font-semibold text-reddy-blue mb-3">
+                  Votre commande est en cours de traitement
+                </h4>
+                <p className="text-gray-700 mb-4 leading-relaxed">
+                  Nous avons bien reçu votre commande pour <strong>"{orderForm.livre}"</strong>.
                 </p>
+                <p className="text-gray-600 mb-6">
+                  Notre équipe vous contactera très bientôt via WhatsApp au <strong>{orderForm.whatsapp}</strong> pour finaliser votre commande.
+                </p>
+                <div className="bg-yellow-50 border-2 border-yellow-300 rounded-lg p-4 mb-6">
+                  <p className="text-sm text-yellow-800 font-semibold">
+                    ⚠️ Vous ne pourrez pas passer une nouvelle commande tant que celle-ci n'est pas traitée.
+                  </p>
+                </div>
+                <button
+                  onClick={() => {
+                    setShowOrderForm(false)
+                    setOrderSubmitted(false)
+                  }}
+                  className="px-8 py-3 bg-reddy-blue text-white font-bold rounded-lg hover:bg-blue-700 transition-all"
+                >
+                  Fermer
+                </button>
               </div>
             )}
           </motion.div>
