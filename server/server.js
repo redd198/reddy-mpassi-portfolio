@@ -3,15 +3,19 @@ import cors from 'cors'
 import dotenv from 'dotenv'
 import bcrypt from 'bcryptjs'
 import jwt from 'jsonwebtoken'
-// Importer le pool MySQL
 import mysqlPool from './db.js'
-
-// Utiliser MySQL (compatible avec Railway)
-const pool = mysqlPool
+import postgresPool from './db-postgres.js'
 import { getLocationFromIP, getClientIP } from './tracking.js'
 import { sendLeadNotification, sendReservationNotification, sendCommandeNotification } from './email.js'
+import { adaptQuery, extractRows, extractInsertId, dbType } from './db-helper.js'
 
 dotenv.config()
+
+// Détecter automatiquement le type de base de données
+const isPostgres = process.env.DATABASE_URL?.startsWith('postgresql://')
+const pool = isPostgres ? postgresPool : mysqlPool
+
+console.log(`🗄️  Base de données: ${dbType}`)
 
 const app = express()
 const PORT = process.env.PORT || 5000
@@ -211,7 +215,9 @@ app.post('/api/admin/login', async (req, res) => {
   try {
     const { username, password } = req.body
 
-    const [rows] = await pool.query('SELECT * FROM admins WHERE username = ?', [username])
+    const { query, params } = adaptQuery('SELECT * FROM admins WHERE username = ?', [username])
+    const result = await pool.query(query, params)
+    const rows = extractRows(result)
     
     if (rows.length === 0) {
       return res.status(401).json({ error: 'Identifiants incorrects' })
