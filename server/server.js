@@ -210,6 +210,44 @@ app.post('/api/newsletter', async (req, res) => {
 
 // ============= ROUTES ADMIN =============
 
+// Créer le premier admin (à utiliser une seule fois)
+app.get('/api/create-first-admin', async (req, res) => {
+  try {
+    // Vérifier si un admin existe déjà
+    const { query: checkQuery, params: checkParams } = adaptQuery('SELECT COUNT(*) as count FROM admins', [])
+    const checkResult = await pool.query(checkQuery, checkParams)
+    const rows = extractRows(checkResult)
+    
+    if (rows[0].count > 0) {
+      return res.json({ 
+        success: false, 
+        message: 'Un admin existe déjà. Cette route ne peut être utilisée qu\'une seule fois.' 
+      })
+    }
+
+    // Créer l'admin
+    const hashedPassword = await bcrypt.hash('Admin@2024', 10)
+    const { query: insertQuery, params: insertParams } = adaptQuery(
+      'INSERT INTO admins (username, password, email) VALUES (?, ?, ?)',
+      ['admin', hashedPassword, 'reddympassi@gmail.com']
+    )
+    
+    await pool.query(insertQuery, insertParams)
+
+    res.json({
+      success: true,
+      message: 'Admin créé avec succès',
+      credentials: {
+        username: 'admin',
+        password: 'Admin@2024'
+      }
+    })
+  } catch (error) {
+    console.error('Erreur création admin:', error)
+    res.status(500).json({ error: error.message })
+  }
+})
+
 // Login admin
 app.post('/api/admin/login', async (req, res) => {
   try {
