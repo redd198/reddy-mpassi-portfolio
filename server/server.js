@@ -62,7 +62,11 @@ app.get('/api/init-database', async (req, res) => {
     
     const __filename = fileURLToPath(import.meta.url)
     const __dirname = dirname(__filename)
-    const sqlPath = join(__dirname, 'database-postgres.sql')
+    
+    // Charger le bon fichier SQL selon le type de base de données
+    const isPostgres = process.env.DATABASE_URL?.startsWith('postgresql://')
+    const sqlFile = isPostgres ? 'database-postgres.sql' : 'database.sql'
+    const sqlPath = join(__dirname, sqlFile)
     
     const sql = fs.readFileSync(sqlPath, 'utf8')
     
