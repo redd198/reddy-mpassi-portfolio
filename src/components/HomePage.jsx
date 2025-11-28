@@ -66,7 +66,7 @@ const HomePage = () => {
                   <img
                     src="/coach.png"
                     alt="Reddy Mpassi - Coach en Économie Numérique"
-                    className="w-full h-full object-cover"
+                    className="w-full h-full object-cover object-[center_20%]"
                     loading="eager"
                   />
                 </div>
