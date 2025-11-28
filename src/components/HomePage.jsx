@@ -64,7 +64,7 @@ const HomePage = () => {
                 {/* Profile Image */}
                 <div className="relative w-64 h-64 md:w-80 md:h-80 rounded-full overflow-hidden border-4 border-white shadow-2xl">
                   <img
-                    src="/reddy-mpassi .png"
+                    src="/coach.png"
                     alt="Reddy Mpassi - Coach en Économie Numérique"
                     className="w-full h-full object-cover"
                     loading="eager"
