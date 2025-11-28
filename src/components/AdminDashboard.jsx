@@ -10,6 +10,10 @@ const AdminDashboard = ({ token, onLogout }) => {
   const [commandes, setCommandes] = useState([])
   const [visitors, setVisitors] = useState([])
   const [loading, setLoading] = useState(true)
+  const [showValidationModal, setShowValidationModal] = useState(false)
+  const [selectedCommande, setSelectedCommande] = useState(null)
+  const [validationCanal, setValidationCanal] = useState('whatsapp')
+  const [validationMessage, setValidationMessage] = useState('')
 
   const fetchData = async () => {
     try {
@@ -38,6 +42,48 @@ const AdminDashboard = ({ token, onLogout }) => {
   useEffect(() => {
     fetchData()
   }, [token])
+
+  const handleValidateCommande = (commande) => {
+    setSelectedCommande(commande)
+    setValidationMessage(`Bonjour ${commande.nom},\n\nVotre commande pour le livre "${commande.livre}" a été validée !\n\nNous vous contacterons très prochainement pour finaliser la livraison.\n\nMerci pour votre confiance !\n\nCordialement,\nL'équipe`)
+    setShowValidationModal(true)
+  }
+
+  const submitValidation = async () => {
+    try {
+      const response = await fetch(
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/commandes/${selectedCommande.id}/valider`,
+        {
+          method: 'POST',
+          headers: {
+            'Authorization': `Bearer ${token}`,
+            'Content-Type': 'application/json'
+          },
+          body: JSON.stringify({
+            canal: validationCanal,
+            message: validationMessage
+          })
+        }
+      )
+
+      const data = await response.json()
+
+      if (data.success) {
+        // Ouvrir le lien dans un nouvel onglet
+        window.open(data.lien, '_blank')
+        
+        // Rafraîchir les données
+        fetchData()
+        
+        // Fermer le modal
+        setShowValidationModal(false)
+        setSelectedCommande(null)
+      }
+    } catch (error) {
+      console.error('Erreur validation:', error)
+      alert('Erreur lors de la validation')
+    }
+  }
 
   if (loading) {
     return (
@@ -162,18 +208,59 @@ const AdminDashboard = ({ token, onLogout }) => {
 
         {/* Commandes Tab */}
         {activeTab === 'commandes' && (
-          <DataTable
-            title="📚 Liste des Commandes"
-            data={commandes}
-            columns={[
-              { key: 'nom', label: 'Nom' },
-              { key: 'email', label: 'Email' },
-              { key: 'whatsapp', label: 'WhatsApp' },
-              { key: 'livre', label: 'Livre' },
-              { key: 'statut', label: 'Statut' },
-              { key: 'created_at', label: 'Date', format: (val) => new Date(val).toLocaleDateString('fr-FR') }
-            ]}
-          />
+          <div className="bg-white rounded-xl shadow-lg overflow-hidden">
+            <div className="p-6 border-b">
+              <h2 className="text-2xl font-bold">📚 Liste des Commandes</h2>
+              <p className="text-gray-600">{commandes.length} entrée(s)</p>
+            </div>
+            <div className="overflow-x-auto">
+              <table className="w-full">
+                <thead className="bg-gray-50">
+                  <tr>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Nom</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Email</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">WhatsApp</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Livre</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Statut</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Date</th>
+                    <th className="px-6 py-3 text-left text-xs font-medium text-gray-500 uppercase tracking-wider">Actions</th>
+                  </tr>
+                </thead>
+                <tbody className="divide-y divide-gray-200">
+                  {commandes.map((commande) => (
+                    <tr key={commande.id} className="hover:bg-gray-50">
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{commande.nom}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{commande.email}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{commande.whatsapp}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">{commande.livre}</td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        <span className={`px-3 py-1 rounded-full text-xs font-semibold ${
+                          commande.statut === 'validee' 
+                            ? 'bg-green-100 text-green-800' 
+                            : 'bg-yellow-100 text-yellow-800'
+                        }`}>
+                          {commande.statut === 'validee' ? '✓ Validée' : '⏳ En attente'}
+                        </span>
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm text-gray-900">
+                        {new Date(commande.created_at).toLocaleDateString('fr-FR')}
+                      </td>
+                      <td className="px-6 py-4 whitespace-nowrap text-sm">
+                        {commande.statut !== 'validee' && (
+                          <button
+                            onClick={() => handleValidateCommande(commande)}
+                            className="bg-green-500 text-white px-4 py-2 rounded-lg hover:bg-green-600 transition-colors"
+                          >
+                            ✓ Valider
+                          </button>
+                        )}
+                      </td>
+                    </tr>
+                  ))}
+                </tbody>
+              </table>
+            </div>
+          </div>
         )}
 
         {/* Visitors Tab */}
@@ -190,6 +277,101 @@ const AdminDashboard = ({ token, onLogout }) => {
           />
         )}
       </div>
+
+      {/* Modal de validation */}
+      {showValidationModal && selectedCommande && (
+        <div className="fixed inset-0 bg-black bg-opacity-50 flex items-center justify-center z-50 p-4">
+          <motion.div
+            initial={{ opacity: 0, scale: 0.9 }}
+            animate={{ opacity: 1, scale: 1 }}
+            className="bg-white rounded-xl shadow-2xl max-w-2xl w-full max-h-[90vh] overflow-y-auto"
+          >
+            <div className="p-6 border-b">
+              <h3 className="text-2xl font-bold">Valider la commande</h3>
+              <p className="text-gray-600 mt-1">
+                Commande de {selectedCommande.nom} - {selectedCommande.livre}
+              </p>
+            </div>
+
+            <div className="p-6 space-y-6">
+              {/* Choix du canal */}
+              <div>
+                <label className="block text-sm font-semibold mb-3">Canal de communication</label>
+                <div className="flex gap-4">
+                  <button
+                    onClick={() => setValidationCanal('whatsapp')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                      validationCanal === 'whatsapp'
+                        ? 'border-green-500 bg-green-50 text-green-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <FaWhatsapp className="text-xl" />
+                    WhatsApp
+                  </button>
+                  <button
+                    onClick={() => setValidationCanal('email')}
+                    className={`flex-1 flex items-center justify-center gap-2 px-4 py-3 rounded-lg border-2 transition-all ${
+                      validationCanal === 'email'
+                        ? 'border-blue-500 bg-blue-50 text-blue-700'
+                        : 'border-gray-300 hover:border-gray-400'
+                    }`}
+                  >
+                    <FaEnvelope className="text-xl" />
+                    Email
+                  </button>
+                </div>
+              </div>
+
+              {/* Message personnalisé */}
+              <div>
+                <label className="block text-sm font-semibold mb-2">Message de validation</label>
+                <textarea
+                  value={validationMessage}
+                  onChange={(e) => setValidationMessage(e.target.value)}
+                  rows={8}
+                  className="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent"
+                  placeholder="Personnalisez votre message..."
+                />
+                <p className="text-xs text-gray-500 mt-2">
+                  Variables disponibles: {'{nom}'}, {'{livre}'}, {'{email}'}, {'{whatsapp}'}
+                </p>
+              </div>
+
+              {/* Aperçu */}
+              <div className="bg-gray-50 rounded-lg p-4">
+                <p className="text-sm font-semibold mb-2">Aperçu du message :</p>
+                <p className="text-sm text-gray-700 whitespace-pre-wrap">
+                  {validationMessage
+                    .replace(/{nom}/g, selectedCommande.nom)
+                    .replace(/{livre}/g, selectedCommande.livre)
+                    .replace(/{email}/g, selectedCommande.email)
+                    .replace(/{whatsapp}/g, selectedCommande.whatsapp)}
+                </p>
+              </div>
+            </div>
+
+            <div className="p-6 border-t flex gap-3 justify-end">
+              <button
+                onClick={() => {
+                  setShowValidationModal(false)
+                  setSelectedCommande(null)
+                }}
+                className="px-6 py-2 border border-gray-300 rounded-lg hover:bg-gray-50 transition-colors"
+              >
+                Annuler
+              </button>
+              <button
+                onClick={submitValidation}
+                className="px-6 py-2 bg-green-500 text-white rounded-lg hover:bg-green-600 transition-colors flex items-center gap-2"
+              >
+                {validationCanal === 'whatsapp' ? <FaWhatsapp /> : <FaEnvelope />}
+                Valider et envoyer
+              </button>
+            </div>
+          </motion.div>
+        </div>
+      )}
     </div>
   )
 }

@@ -1,4 +1,4 @@
-vas yimport express from 'express'
+import express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import bcrypt from 'bcryptjs'
@@ -385,6 +385,31 @@ app.get('/api/admin/commandes', authenticateToken, async (req, res) => {
   } catch (error) {
     console.error('Erreur:', error)
     res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Ajouter la colonne statut si elle n'existe pas (migration)
+app.get('/api/admin/migrate-commandes', authenticateToken, async (req, res) => {
+  try {
+    const isPostgres = process.env.DATABASE_URL?.startsWith('postgresql://')
+    
+    if (isPostgres) {
+      await pool.query(`
+        ALTER TABLE commandes_livres 
+        ADD COLUMN IF NOT EXISTS statut VARCHAR(50) DEFAULT 'en_attente'
+      `)
+    } else {
+      // MySQL
+      await pool.query(`
+        ALTER TABLE commandes_livres 
+        ADD COLUMN statut VARCHAR(50) DEFAULT 'en_attente'
+      `)
+    }
+    
+    res.json({ success: true, message: 'Migration effectuée' })
+  } catch (error) {
+    // Si la colonne existe déjà, ignorer l'erreur
+    res.json({ success: true, message: 'Colonne déjà existante ou migration effectuée' })
   }
 })
 
