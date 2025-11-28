@@ -1,4 +1,4 @@
-import express from 'express'
+vas yimport express from 'express'
 import cors from 'cors'
 import dotenv from 'dotenv'
 import bcrypt from 'bcryptjs'
@@ -384,6 +384,65 @@ app.get('/api/admin/commandes', authenticateToken, async (req, res) => {
     res.json(rows)
   } catch (error) {
     console.error('Erreur:', error)
+    res.status(500).json({ error: 'Erreur serveur' })
+  }
+})
+
+// Valider une commande et envoyer un message
+app.post('/api/admin/commandes/:id/valider', authenticateToken, async (req, res) => {
+  try {
+    const { id } = req.params
+    const { canal, message } = req.body
+
+    if (!canal || !message) {
+      return res.status(400).json({ error: 'Canal et message requis' })
+    }
+
+    // Récupérer les infos de la commande
+    const { query: selectQuery, params: selectParams } = adaptQuery(
+      'SELECT * FROM commandes_livres WHERE id = ?',
+      [id]
+    )
+    const result = await pool.query(selectQuery, selectParams)
+    const commandes = extractRows(result)
+    
+    if (commandes.length === 0) {
+      return res.status(404).json({ error: 'Commande non trouvée' })
+    }
+
+    const commande = commandes[0]
+
+    // Mettre à jour le statut de la commande
+    const { query: updateQuery, params: updateParams } = adaptQuery(
+      'UPDATE commandes_livres SET statut = ? WHERE id = ?',
+      ['validee', id]
+    )
+    await pool.query(updateQuery, updateParams)
+
+    // Préparer le message avec les variables
+    const messageFinal = message
+      .replace(/{nom}/g, commande.nom)
+      .replace(/{livre}/g, commande.livre)
+      .replace(/{email}/g, commande.email)
+      .replace(/{whatsapp}/g, commande.whatsapp)
+
+    // Générer le lien selon le canal
+    let lien = ''
+    if (canal === 'whatsapp') {
+      const whatsappNumber = commande.whatsapp.replace(/[^0-9]/g, '')
+      lien = `https://wa.me/${whatsappNumber}?text=${encodeURIComponent(messageFinal)}`
+    } else if (canal === 'email') {
+      lien = `mailto:${commande.email}?subject=${encodeURIComponent('Confirmation de commande')}&body=${encodeURIComponent(messageFinal)}`
+    }
+
+    res.json({
+      success: true,
+      message: 'Commande validée',
+      lien,
+      canal
+    })
+  } catch (error) {
+    console.error('Erreur validation commande:', error)
     res.status(500).json({ error: 'Erreur serveur' })
   }
 })
