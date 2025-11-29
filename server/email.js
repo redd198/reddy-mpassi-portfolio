@@ -3,21 +3,24 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-// Configuration du transporteur email
+// Configuration du transporteur email avec port 465 (SSL)
 const transporter = nodemailer.createTransport({
   host: 'smtp.gmail.com',
-  port: 587,
-  secure: false, // true for 465, false for other ports
+  port: 465,
+  secure: true, // true for 465 (SSL)
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASSWORD
   },
   tls: {
-    rejectUnauthorized: false
+    rejectUnauthorized: false,
+    minVersion: 'TLSv1.2'
   },
-  connectionTimeout: 10000, // 10 secondes
-  greetingTimeout: 10000,
-  socketTimeout: 10000
+  connectionTimeout: 15000, // 15 secondes
+  greetingTimeout: 15000,
+  socketTimeout: 15000,
+  logger: true, // Active les logs pour debug
+  debug: false // Désactive le debug verbeux
 })
 
 // Envoyer une notification pour un nouveau lead
