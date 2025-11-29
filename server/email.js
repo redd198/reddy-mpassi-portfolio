@@ -3,24 +3,24 @@ import dotenv from 'dotenv'
 
 dotenv.config()
 
-// Configuration du transporteur email avec port 465 (SSL)
+// Configuration du transporteur email avec Zoho Mail
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com',
+  host: 'smtp.zoho.com',
   port: 465,
   secure: true, // true for 465 (SSL)
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASSWORD
+    user: process.env.EMAIL_USER, // contact@reddympassi.site
+    pass: process.env.EMAIL_PASSWORD // Mot de passe Zoho
   },
   tls: {
     rejectUnauthorized: false,
     minVersion: 'TLSv1.2'
   },
-  connectionTimeout: 15000, // 15 secondes
+  connectionTimeout: 15000,
   greetingTimeout: 15000,
   socketTimeout: 15000,
-  logger: true, // Active les logs pour debug
-  debug: false // Désactive le debug verbeux
+  logger: true,
+  debug: false
 })
 
 // Envoyer une notification pour un nouveau lead
