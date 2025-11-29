@@ -51,12 +51,15 @@ const AdminDashboard = ({ token, onLogout }) => {
 
   const submitValidation = async () => {
     try {
+      // Sauvegarder l'ID avant de fermer le modal
+      const commandeId = selectedCommande.id
+      
       // Fermer le modal immédiatement pour une meilleure UX
       setShowValidationModal(false)
       setSelectedCommande(null)
 
       const response = await fetch(
-        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/commandes/${selectedCommande.id}/valider`,
+        `${import.meta.env.VITE_API_URL || 'http://localhost:5000'}/api/admin/commandes/${commandeId}/valider`,
         {
           method: 'POST',
           headers: {
@@ -73,10 +76,7 @@ const AdminDashboard = ({ token, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
-        // Rafraîchir les données
-        await fetchData()
-        
-        // Afficher le message de succès après la fermeture du modal
+        // Afficher le message de succès
         if (data.emailSent) {
           alert('✅ Email envoyé avec succès au client !')
         } else if (data.lien) {
@@ -84,6 +84,9 @@ const AdminDashboard = ({ token, onLogout }) => {
           window.open(data.lien, '_blank')
           alert('✅ Commande validée ! Le lien WhatsApp a été ouvert.')
         }
+        
+        // Rafraîchir les données après l'alerte
+        await fetchData()
       } else {
         alert('❌ Erreur : ' + (data.message || 'Erreur inconnue'))
       }
