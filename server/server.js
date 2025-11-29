@@ -413,6 +413,66 @@ app.get('/api/admin/migrate-commandes', authenticateToken, async (req, res) => {
   }
 })
 
+// Route de fix pour supprimer la contrainte CHECK et recréer la colonne statut
+app.get('/api/admin/fix-statut-constraint', authenticateToken, async (req, res) => {
+  try {
+    const isPostgres = process.env.DATABASE_URL?.startsWith('postgresql://')
+    
+    if (!isPostgres) {
+      return res.json({ success: false, message: 'Cette route est uniquement pour PostgreSQL' })
+    }
+
+    // Étape 1 : Supprimer la contrainte CHECK si elle existe
+    try {
+      await pool.query(`
+        ALTER TABLE commandes_livres 
+        DROP CONSTRAINT IF EXISTS commandes_livres_statut_check
+      `)
+      console.log('✅ Contrainte CHECK supprimée')
+    } catch (err) {
+      console.log('⚠️ Erreur suppression contrainte:', err.message)
+    }
+
+    // Étape 2 : Supprimer la colonne statut si elle existe
+    try {
+      await pool.query(`
+        ALTER TABLE commandes_livres 
+        DROP COLUMN IF EXISTS statut
+      `)
+      console.log('✅ Colonne statut supprimée')
+    } catch (err) {
+      console.log('⚠️ Erreur suppression colonne:', err.message)
+    }
+
+    // Étape 3 : Recréer la colonne statut proprement
+    await pool.query(`
+      ALTER TABLE commandes_livres 
+      ADD COLUMN statut VARCHAR(50) DEFAULT 'en_attente'
+    `)
+    console.log('✅ Colonne statut recréée')
+
+    // Étape 4 : Vérifier la structure
+    const result = await pool.query(`
+      SELECT column_name, data_type, column_default 
+      FROM information_schema.columns 
+      WHERE table_name = 'commandes_livres' AND column_name = 'statut'
+    `)
+    
+    res.json({ 
+      success: true, 
+      message: 'Contrainte CHECK supprimée et colonne statut recréée avec succès',
+      columnInfo: result.rows
+    })
+  } catch (error) {
+    console.error('❌ Erreur fix statut:', error)
+    res.status(500).json({ 
+      success: false, 
+      error: error.message,
+      detail: error.detail 
+    })
+  }
+})
+
 // Valider une commande et envoyer un message
 app.post('/api/admin/commandes/:id/valider', authenticateToken, async (req, res) => {
   try {
