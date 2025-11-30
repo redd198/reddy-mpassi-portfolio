@@ -114,6 +114,20 @@ app.post('/api/reservations', async (req, res) => {
       return res.status(400).json({ error: 'Tous les champs sont requis' })
     }
 
+    // Vérifier si l'email a déjà une réservation en attente
+    const { query: checkQuery, params: checkParams } = adaptQuery(
+      'SELECT COUNT(*) as count FROM reservations WHERE email = ? AND statut = ?',
+      [email, 'en_attente']
+    )
+    const checkResult = await pool.query(checkQuery, checkParams)
+    const rows = extractRows(checkResult)
+    
+    if (rows[0].count > 0) {
+      return res.status(400).json({ 
+        error: 'Vous avez déjà une réservation en attente de validation. Veuillez patienter ou nous contacter sur WhatsApp.' 
+      })
+    }
+
     const { query, params } = adaptQuery(
       `INSERT INTO reservations 
        (nom, whatsapp, email, theme, objectif, date_souhaitee, heure_souhaitee, paiement) 
@@ -158,6 +172,20 @@ app.post('/api/commandes', async (req, res) => {
 
     if (!nom || !email || !whatsapp || !livre) {
       return res.status(400).json({ error: 'Tous les champs sont requis' })
+    }
+
+    // Vérifier si l'email a déjà une commande en attente pour ce livre
+    const { query: checkQuery, params: checkParams } = adaptQuery(
+      'SELECT COUNT(*) as count FROM commandes_livres WHERE email = ? AND livre = ? AND statut = ?',
+      [email, livre, 'en_attente']
+    )
+    const checkResult = await pool.query(checkQuery, checkParams)
+    const rows = extractRows(checkResult)
+    
+    if (rows[0].count > 0) {
+      return res.status(400).json({ 
+        error: 'Vous avez déjà commandé ce livre. Votre commande est en cours de traitement.' 
+      })
     }
 
     const { query, params } = adaptQuery(
