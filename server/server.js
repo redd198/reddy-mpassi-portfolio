@@ -24,10 +24,34 @@ const PORT = process.env.PORT || 5000
 app.use(cors())
 app.use(express.json())
 
-// Middleware pour tracker les visiteurs - DÉSACTIVÉ TEMPORAIREMENT
-// (ipapi.co a une limite de requêtes)
+// Middleware pour tracker les visiteurs
 app.use(async (req, res, next) => {
-  next() // Passer directement sans tracking
+  try {
+    // Ignorer les requêtes API et assets
+    if (req.path.startsWith('/api') || req.path.includes('.')) {
+      return next()
+    }
+
+    const clientIP = getClientIP(req)
+    const userAgent = req.headers['user-agent'] || 'Unknown'
+    const pageUrl = req.headers['referer'] || req.url
+    
+    // Enregistrer le visiteur sans géolocalisation (pour éviter les limites d'API)
+    const { query, params } = adaptQuery(
+      `INSERT INTO visitors (ip_address, user_agent, page_url, country, city) 
+       VALUES (?, ?, ?, ?, ?)`,
+      [clientIP, userAgent, pageUrl, 'Non disponible', 'Non disponible']
+    )
+    
+    await pool.query(query, params).catch(err => {
+      console.log('⚠️ Erreur tracking visiteur (ignorée):', err.message)
+    })
+  } catch (error) {
+    // Ignorer les erreurs de tracking pour ne pas bloquer le site
+    console.log('⚠️ Erreur tracking (ignorée):', error.message)
+  }
+  
+  next()
 })
 
 // Middleware d'authentification
