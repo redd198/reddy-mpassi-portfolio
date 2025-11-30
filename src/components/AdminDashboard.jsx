@@ -76,12 +76,15 @@ const AdminDashboard = ({ token, onLogout }) => {
       const data = await response.json()
 
       if (data.success) {
-        // Afficher le message de succès
-        if (data.emailSent) {
-          alert('✅ Email envoyé avec succès au client !')
-        } else if (data.lien) {
-          // Ouvrir le lien dans un nouvel onglet (WhatsApp ou fallback email)
+        // Toujours ouvrir WhatsApp (même pour email, car SMTP est bloqué sur Render)
+        if (data.lien) {
           window.open(data.lien, '_blank')
+        }
+        
+        // Message selon le canal choisi
+        if (validationCanal === 'email') {
+          alert('✅ Commande validée !\n\n⚠️ L\'envoi automatique d\'email n\'est pas disponible sur Render.\n\nVeuillez envoyer le message manuellement à : ' + selectedCommande.email)
+        } else {
           alert('✅ Commande validée ! Le lien WhatsApp a été ouvert.')
         }
         
